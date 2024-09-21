@@ -3,6 +3,8 @@ use raylib::prelude::*;
 
 use crate::point::Point;
 
+type Tri<T> = (Point<T>, Point<T>, Point<T>);
+
 struct Bone {
     point: Point<f32>,
     control_radius: f32,
@@ -11,7 +13,7 @@ struct Bone {
 }
 
 pub struct Worm {
-    color: Color,
+    pub color: Color,
     head: Option<Box<Bone>>,
     target: Option<Point<f32>>
 }
@@ -31,40 +33,48 @@ impl Worm {
         self.head = Some(Box::new(head));
     }
 
-    pub fn find_target_random(&mut self) {
+    pub fn find_target_random(&mut self, w: i32, h: i32) {
+        // choisir une destination au hasard à une distance < R
         const R: f32 = 200.;
         let r = rand::random::<f32>()*R;
         let a = rand::random::<f32>()*2.*PI;
-        let h = self.head.as_ref().unwrap().point;
+        let p = self.head.as_ref().unwrap().point;
 
-        let mut t = h + r*Point::e_i(a);
-        t.x = if t.x < 0. { 0. } else if t.x > 800. { 800. } else { t.x };
-        t.y = if t.y < 0. { 0. } else if t.y > 450. { 450. } else { t.y };
+        let mut t = p + r*Point::e_i(a);
+        // bloque dans la fenetres
+        let w = w as f32;
+        let h = h as f32;
+        t.x = if t.x < 0. { 0. } else if t.x > w { w } else { t.x };
+        t.y = if t.y < 0. { 0. } else if t.y > h { h } else { t.y };
         self.target = Some(t);
     }
 
-    pub fn roam(&mut self) -> Vector2 {
-        const V: f32 = 0.01;
-        let h = self.head.as_ref().unwrap().point;
+    pub fn roam(&mut self, w: i32, h: i32) -> Vector2 {
+        // se balade au hasard en enchainant les destinations
+        // renvoie la nouvelle position de la tete
+        const V: f32 = 0.05;
+        let p = self.head.as_ref().unwrap().point;
 
+        // actualise la destination
         match self.target {
-            None => self.find_target_random(),
+            None => self.find_target_random(w, h),
             Some(t) =>
-                if (t - h).norm() < EPSILON {
-                    self.find_target_random();
+                if (t - p).norm() < EPSILON {
+                    self.find_target_random(w, h);
                 }
         }
 
         let t = self.target.unwrap();
-        let v = t - h;
-        if (t - h).norm() < V {
+        let v = t - p;
+        if (t - p).norm() < V {
             t.into()
         } else {
-            (h + (V/v.norm())*v).into()
+            (p + (V/v.norm())*v).into()
         }
     }
 
     pub fn update(&mut self, Vector2 { x, y }: Vector2) {
+        // met a jour le corps suivant la nouvelle position de la tete
         if let Some(head) = &mut self.head {
             head.point = Point { x, y };
             let mut c = head;
@@ -75,40 +85,46 @@ impl Worm {
         }
     }
 
-    pub fn draw_outline(&self, d: &mut RaylibDrawHandle) {
-        let mut left: Vec<Point<f32>> = Vec::new();
-        let mut right: Vec<Point<f32>> = Vec::new();
+    pub fn draw(&self, d: &mut RaylibDrawHandle) {
+        let mut tri = Vec::new();
+        let mut quad = Vec::new();
 
         if let Some(head) = &self.head {
             let mut a = head;
             if let Some(b) = &a.next {
                 let mut b = b;
-                extrema(a, b, &mut right);
+                tri_extrema(a, b, &mut tri, &mut quad);
 
                 loop {
                     if let Some(c) = &b.next {
-                        joint(a, b, c, &mut left, &mut right);
+                        tri_bone(a, b, c, &mut tri, &mut quad);
                         a = b;
                         b = c;
                     }
                     else {
-                        extrema(b, a, &mut right);
+                        tri_extrema(b, a, &mut tri, &mut quad);
                         break
                     }
                 }
             }
         }
-
-        left.reverse();
-        let side = [left, right].concat();
-
-        for i in 1..side.len() {
-            d.draw_line_v(side[i-1], side[i], self.color);
+        
+        while !tri.is_empty() {
+            let (a, b, c) = tri.pop().unwrap();
+            d.draw_triangle(a, b, c, self.color);
         }
-        d.draw_line_v(side[side.len()-1], side[0], self.color);
+        
+        while !quad.is_empty() {
+            let e = quad.pop().unwrap();
+            let c = quad.pop().unwrap();
+            let b = quad.pop().unwrap();
+            let a = quad.pop().unwrap();
+            d.draw_triangle(a, b, c, self.color);
+            d.draw_triangle(a, c, e, self.color);
+        }
     }
 
-    pub fn draw(&self, d: &mut RaylibDrawHandle) {
+    pub fn draw_debug(&self, d: &mut RaylibDrawHandle) {
         let mut c = &self.head;
         while let Some(bone) = c {
             d.draw_circle_lines(bone.point.x as i32, bone.point.y as i32, bone.radius, Color::YELLOW);
@@ -117,38 +133,59 @@ impl Worm {
     }
 }
 
-fn extrema(ex: &Bone, p: &Bone, right: &mut Vec<Point<f32>>) {
-    const N: i32 = 6;
+fn tri_extrema(ex: &Bone, p: &Bone, tri: &mut Vec<Tri<f32>>, quad: &mut Vec<Point<f32>>) {
+    const N: u32 = 6;
     let da = PI as f32/(N-1) as f32;
     let n = (ex.point - p.point).normal();
     let n = (-ex.radius/n.norm())*n;
-    
-    for i in 0..N {
-        right.push(ex.point + n.rotate(i as f32*da));
+
+    for i in 0..(N-1) {
+        let a = ex.point + n.rotate((i+1) as f32*da);
+        let b = ex.point + n.rotate(i as f32*da);
+        tri.push((ex.point, a, b));
     }
+    
+    quad.push(ex.point - n);
+    quad.push(ex.point + n);
 }
 
-fn joint(a: &Bone, b: &Bone, c: &Bone, left: &mut Vec<Point<f32>>, right: &mut Vec<Point<f32>>) {
+fn tri_bone(a: &Bone, b: &Bone, c: &Bone, tri: &mut Vec<Tri<f32>>, quad: &mut Vec<Point<f32>>) {
     let ab = b.point - a.point;
     let bc = c.point - b.point;
     let n = (ab + bc).normal();
     let n = (b.radius/n.norm())*n;
 
+    let sl = b.point + n;
+    let sr = b.point - n;
+    // selon l'orientation
+    let sgn = if ab.dot(&n) >= 0. { 1. } else { -1. };
+    let sa = b.point + sgn*(b.radius/ab.norm())*ab.normal();
+    let sc = b.point + sgn*(b.radius/bc.norm())*bc.normal();
+
+    tri.push((sl, sr, sa)); 
+    tri.push((sr, sl, sc));
+    
+    // fill
     if ab.dot(&n) >= 0. {
-        left.push(b.point + (b.radius/ab.norm())*ab.normal());
-        left.push(b.point + n);
-        left.push(b.point + (b.radius/bc.norm())*bc.normal());
-        right.push(b.point - n);
+        // a
+        quad.push(sa);
+        quad.push(sr);
+        // c
+        quad.push(sr);
+        quad.push(sc);
     }
     else {
-        left.push(b.point + n);
-        right.push(b.point - (b.radius/ab.norm())*ab.normal());
-        right.push(b.point - n);
-        right.push(b.point - (b.radius/bc.norm())*bc.normal());
+        // a
+        quad.push(sl);
+        quad.push(sa);
+        // c
+        quad.push(sc);
+        quad.push(sl);
     }
 }
 
 fn follow(a: Point<f32>, b: Point<f32>, r: f32) -> Point<f32> {
+    // ramene b a une distance r de a
     let v = b - a;
     let norm = v.norm();
     if norm <= r {
