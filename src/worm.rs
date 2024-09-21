@@ -34,14 +34,14 @@ impl Worm {
     }
 
     pub fn find_target_random(&mut self, w: i32, h: i32) {
-        // choisir une destination au hasard à une distance < R
+        // choose a random target at < R
         const R: f32 = 200.;
         let r = rand::random::<f32>()*R;
         let a = rand::random::<f32>()*2.*PI;
         let p = self.head.as_ref().unwrap().point;
 
         let mut t = p + r*Point::e_i(a);
-        // bloque dans la fenetres
+        // restricted to the window
         let w = w as f32;
         let h = h as f32;
         t.x = if t.x < 0. { 0. } else if t.x > w { w } else { t.x };
@@ -50,12 +50,12 @@ impl Worm {
     }
 
     pub fn roam(&mut self, w: i32, h: i32) -> Vector2 {
-        // se balade au hasard en enchainant les destinations
-        // renvoie la nouvelle position de la tete
+        // roams by chaining random targets
+        // returns next head position
         const V: f32 = 0.05;
         let p = self.head.as_ref().unwrap().point;
 
-        // actualise la destination
+        // update the target if it has been reached
         match self.target {
             None => self.find_target_random(w, h),
             Some(t) =>
@@ -74,7 +74,7 @@ impl Worm {
     }
 
     pub fn update(&mut self, Vector2 { x, y }: Vector2) {
-        // met a jour le corps suivant la nouvelle position de la tete
+        // update the bones with the new head location
         if let Some(head) = &mut self.head {
             head.point = Point { x, y };
             let mut c = head;
@@ -134,6 +134,7 @@ impl Worm {
 }
 
 fn tri_extrema(ex: &Bone, p: &Bone, tri: &mut Vec<Tri<f32>>, quad: &mut Vec<Point<f32>>) {
+    // triangles of head and tail
     const N: u32 = 6;
     let da = PI as f32/(N-1) as f32;
     let n = (ex.point - p.point).normal();
@@ -150,6 +151,7 @@ fn tri_extrema(ex: &Bone, p: &Bone, tri: &mut Vec<Tri<f32>>, quad: &mut Vec<Poin
 }
 
 fn tri_bone(a: &Bone, b: &Bone, c: &Bone, tri: &mut Vec<Tri<f32>>, quad: &mut Vec<Point<f32>>) {
+    // triangles between bones
     let ab = b.point - a.point;
     let bc = c.point - b.point;
     let n = (ab + bc).normal();
@@ -157,7 +159,7 @@ fn tri_bone(a: &Bone, b: &Bone, c: &Bone, tri: &mut Vec<Tri<f32>>, quad: &mut Ve
 
     let sl = b.point + n;
     let sr = b.point - n;
-    // selon l'orientation
+    // wether turning left or right
     let sgn = if ab.dot(&n) >= 0. { 1. } else { -1. };
     let sa = b.point + sgn*(b.radius/ab.norm())*ab.normal();
     let sc = b.point + sgn*(b.radius/bc.norm())*bc.normal();
@@ -165,7 +167,6 @@ fn tri_bone(a: &Bone, b: &Bone, c: &Bone, tri: &mut Vec<Tri<f32>>, quad: &mut Ve
     tri.push((sl, sr, sa)); 
     tri.push((sr, sl, sc));
     
-    // fill
     if ab.dot(&n) >= 0. {
         // a
         quad.push(sa);
@@ -185,7 +186,7 @@ fn tri_bone(a: &Bone, b: &Bone, c: &Bone, tri: &mut Vec<Tri<f32>>, quad: &mut Ve
 }
 
 fn follow(a: Point<f32>, b: Point<f32>, r: f32) -> Point<f32> {
-    // ramene b a une distance r de a
+    // clamp b to a
     let v = b - a;
     let norm = v.norm();
     if norm <= r {

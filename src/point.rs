@@ -1,6 +1,7 @@
 use std::ops::{Add, Mul, Neg, Sub};
 use raylib::{math, ffi};
 
+// silly algebra
 /*trait Scalar<V: Vector<Self>>: Sized
     + Add<Self, Output = Self>
     + Sub<Self, Output = Self>
