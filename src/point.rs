@@ -1,5 +1,5 @@
 use std::ops::{Add, Mul, Neg, Sub};
-use raylib::{math, ffi};
+use raylib::{ffi, math};
 
 // silly algebra
 /*trait Scalar<V: Vector<Self>>: Sized
@@ -23,15 +23,19 @@ pub struct Point<T> {
 }
 
 impl Point<f32> {
-    pub fn zero() -> Point<f32> {
-        Point { x: 0., y: 0. }
+    pub fn from(math::Vector2 { x, y }: math::Vector2) -> Self {
+        Self { x, y }
     }
 
-    pub fn e_i(alpha: f32) -> Point<f32> {
-        Point { x: alpha.cos(), y: alpha.sin() }
+    pub fn zero() -> Self {
+        Self { x: 0., y: 0. }
     }
 
-    pub fn dot(&self, v: &Point<f32>) -> f32 {
+    pub fn e_i(alpha: f32) -> Self {
+        Self { x: alpha.cos(), y: alpha.sin() }
+    }
+
+    pub fn dot(&self, v: &Self) -> f32 {
         self.x*v.x + self.y*v.y
     }
 
@@ -40,15 +44,15 @@ impl Point<f32> {
     }
 
     pub fn normal(&self) -> Self {
-        Point { x: -self.y, y: self.x }
+        Self { x: -self.y, y: self.x }
     }
 
     pub fn rotate(&self, a: f32) -> Self {
-        Point {
+        Self {
             x: a.cos()*self.x - a.sin()*self.y,
             y: a.sin()*self.x + a.cos()*self.y
         }
-    }
+    } 
 }
 
 impl Into<math::Vector2> for Point<f32> {

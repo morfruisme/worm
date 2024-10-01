@@ -10,10 +10,10 @@ fn main() {
     let mut width = 800;
     let mut height = 450;
 
-    let mut w: Worm = Worm::new();
+    /*let mut w: Worm = Worm::new();
     for i in 0..10 {
         w.grow(10., (5+i/2) as f32);
-    }
+    }*/
 
     let mut worms: Vec<Worm> = Vec::new();
     for _ in 0..30 {
@@ -38,19 +38,19 @@ fn main() {
             height = rl.get_screen_height();
         }
 
-        let p = rl.get_mouse_position();
+        //let mut p = Point::from(rl.get_mouse_position()); 
+
         let mut d = rl.begin_drawing(&thread);
         d.clear_background(Color::WHITE);
 
         for w in worms.iter_mut() {
             let p = w.roam(width, height);
             w.update(p);
-
             w.draw(&mut d);
         }
 
-        w.update(p);
-        w.draw(&mut d);
+        /*w.update(p);
+        w.draw(&mut d);*/
     }
 }
 
@@ -62,3 +62,12 @@ fn random_color() -> Color {
         a: 255
     }
 }
+
+/*impl Point<f32> {
+    fn clamp_to_rect(&mut self, (minx, miny): (f32, f32), (maxx, maxy): (f32, f32)) {
+        if self.x < minx { self.x = minx }
+        else if self.x > maxx { self.x = maxx }
+        if self.y < miny { self.y = miny }
+        else if self.y > maxx { self.y = maxy }
+    }
+}*/

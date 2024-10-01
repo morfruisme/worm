@@ -49,7 +49,7 @@ impl Worm {
         self.target = Some(t);
     }
 
-    pub fn roam(&mut self, w: i32, h: i32) -> Vector2 {
+    pub fn roam(&mut self, w: i32, h: i32) -> Point<f32> {
         // roams by chaining random targets
         // returns next head position
         const V: f32 = 0.05;
@@ -67,16 +67,16 @@ impl Worm {
         let t = self.target.unwrap();
         let v = t - p;
         if (t - p).norm() < V {
-            t.into()
+            t
         } else {
-            (p + (V/v.norm())*v).into()
+            p + (V/v.norm())*v
         }
     }
 
-    pub fn update(&mut self, Vector2 { x, y }: Vector2) {
+    pub fn update(&mut self, p: Point<f32>) {
         // update the bones with the new head location
         if let Some(head) = &mut self.head {
-            head.point = Point { x, y };
+            head.point = p;
             let mut c = head;
             while let Some(next) = &mut c.next {
                 next.point = follow(c.point, next.point, c.control_radius);
@@ -124,10 +124,10 @@ impl Worm {
         }
     }
 
-    pub fn draw_debug(&self, d: &mut RaylibDrawHandle) {
+    pub fn draw_debug(&self, d: &mut RaylibDrawHandle, Point { x, y }: Point<f32>) {
         let mut c = &self.head;
         while let Some(bone) = c {
-            d.draw_circle_lines(bone.point.x as i32, bone.point.y as i32, bone.radius, Color::YELLOW);
+            d.draw_circle_lines((bone.point.x + x) as i32, (bone.point.y + y) as i32, bone.radius, Color::YELLOW);
             c = &bone.next;
         }
     }
